@@ -53,8 +53,7 @@ public final class EquityTrade implements TradeType {
 
     /** Notional = quantity * price in the trade currency. */
     @Override public Money notional() {
-        // TODO(TICKET-ADV019): return new Money(quantity * price, currency).
-        throw new UnsupportedOperationException("TICKET-ADV019");
+        return new Money(quantity.multiply(price), currency);
     }
 
     public String instrumentSymbol() { return instrumentSymbol; }
@@ -67,20 +66,18 @@ public final class EquityTrade implements TradeType {
     /** equals: two EquityTrades are equal iff their tradeRef is equal. */
     @Override
     public boolean equals(Object o) {
-        // TODO(TICKET-ADV028): pattern-match on EquityTrade and compare tradeRef.
-        throw new UnsupportedOperationException("TICKET-ADV028");
+        return (o instanceof EquityTrade other) && tradeRef.equals(other.tradeRef);
     }
 
     @Override public int hashCode() {
-        // TODO(TICKET-ADV028): hash from tradeRef so it pairs with equals().
-        throw new UnsupportedOperationException("TICKET-ADV028");
+        return tradeRef.hashCode();
     }
 
     @Override
     public String toString() {
-        // TODO(TICKET-ADV030): "EquityTrade[ref=..., symbol=..., qty=..., price=... CCY, side=...]"
-        //                     — must NOT leak counterparty PII.
-        throw new UnsupportedOperationException("TICKET-ADV030");
+        return "EquityTrade[ref=%s, symbol=%s, qty=%s, price=%s %s, side=%s]"
+                .formatted(tradeRef, instrumentSymbol, quantity, price,
+                        currency.getCurrencyCode(), side);
     }
 
     /** Fluent builder. Required fields validated in {@link #build()}. */
@@ -105,12 +102,16 @@ public final class EquityTrade implements TradeType {
         public Builder counterpartyId(long v)         { this.counterpartyId = v;  return this; }
 
         public EquityTrade build() {
-            // TODO(TICKET-ADV019):
-            //   - Objects.requireNonNull each required field (tradeRef, instrumentSymbol,
-            //     quantity, price, currency, side, tradeDate).
-            //   - quantity and price must be > 0 (IllegalStateException otherwise).
-            //   - return new EquityTrade(this).
-            throw new UnsupportedOperationException("TICKET-ADV019");
+            Objects.requireNonNull(tradeRef,         "tradeRef");
+            Objects.requireNonNull(instrumentSymbol, "instrumentSymbol");
+            Objects.requireNonNull(quantity,         "quantity");
+            Objects.requireNonNull(price,            "price");
+            Objects.requireNonNull(currency,         "currency");
+            Objects.requireNonNull(side,             "side");
+            Objects.requireNonNull(tradeDate,        "tradeDate");
+            if (quantity.signum() <= 0) throw new IllegalStateException("quantity must be > 0");
+            if (price.signum() <= 0)    throw new IllegalStateException("price must be > 0");
+            return new EquityTrade(this);
         }
     }
 }

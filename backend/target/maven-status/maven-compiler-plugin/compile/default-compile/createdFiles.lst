@@ -29,6 +29,7 @@ com\dbtraining\reconx\model\TradeType.class
 com\dbtraining\reconx\repository\entity\AppUser.class
 com\dbtraining\reconx\repository\TradeRepository.class
 com\dbtraining\reconx\service\InstrumentService.class
+com\dbtraining\reconx\model\TradeFactory$1.class
 com\dbtraining\reconx\dto\ReconResult$Status.class
 com\dbtraining\reconx\controller\ReconController.class
 com\dbtraining\reconx\repository\entity\AuditLogEntry.class
