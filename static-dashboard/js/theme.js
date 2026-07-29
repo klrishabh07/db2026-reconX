@@ -13,3 +13,8 @@
     });
   });
 })();
+
+// File: static-dashboard/js/theme.js
+// theme toggle, persisted to localStorage; first paint reads
+// the persisted value to avoid a FOUC flash of the wrong theme.
+
