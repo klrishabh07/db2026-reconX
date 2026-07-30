@@ -24,13 +24,13 @@ import static com.dbtraining.reconx.repository.TradeSpecifications.*;
 
 /**
  * ============================================================================
- * TICKET-ADV064 — TradeService.create (POST endpoint backing)
- * TICKET-ADV065 — update
- * TICKET-ADV066 — updateStatus (PATCH)
- * TICKET-ADV067 — softDelete
- * TICKET-ADV083 — increments trade_created_total Counter on create
- * TICKET-ADV129 — publishes TradeEvent on every state change
- * TICKET-ADV055/ADV056 — list() uses Specifications + filter query
+ * TradeService.create (POST endpoint backing)
+ * update
+ * updateStatus (PATCH)
+ * softDelete
+ * increments trade_created_total Counter on create
+ * publishes TradeEvent on every state change
+ * TICKET-ADV055/TICKET-ADV056 — list() uses Specifications + filter query
  * ============================================================================
  */
 @Service
@@ -56,81 +56,67 @@ public class TradeService {
     }
 
     public Trade create(TradeRequest req, String actor) {
-        tradeRepo.findByTradeRef(req.tradeRef()).ifPresent(t -> {
-            throw new DuplicateTradeRefException(req.tradeRef());
-        });
-        var instrument = instRepo.findById(req.instrumentId())
-                .orElseThrow(() -> new TradeNotFoundException("instrument " + req.instrumentId()));
-        var counterparty = cpRepo.findById(req.counterpartyId())
-                .orElseThrow(() -> new TradeNotFoundException("counterparty " + req.counterpartyId()));
+        tradeRepo.findByTradeRef(req.tradeRef())
+                .ifPresent(t -> { throw new DuplicateTradeRefException(req.tradeRef()); });
 
-        var t = new Trade();
+        Trade t = new Trade();
         t.setTradeRef(req.tradeRef());
-        t.setInstrument(instrument);
-        t.setCounterparty(counterparty);
+        t.setInstrument(instRepo.findById(req.instrumentId())
+                .orElseThrow(() -> new TradeNotFoundException("instrument " + req.instrumentId())));
+        t.setCounterparty(cpRepo.findById(req.counterpartyId())
+                .orElseThrow(() -> new TradeNotFoundException("counterparty " + req.counterpartyId())));
         t.setAssetClass(req.assetClass());
         t.setSide(req.side());
         t.setQuantity(req.quantity());
         t.setPrice(req.price());
         t.setTradeDate(req.tradeDate());
         t.setStatus("PENDING");
-        Trade saved = tradeRepo.save(t);
 
+        Trade saved = tradeRepo.save(t);
         metrics.incrementTradeCreated();
-        metrics.recordTradeValue(req.quantity().multiply(req.price()).doubleValue());
+        metrics.recordTradeValue(saved.getQuantity().multiply(saved.getPrice()).doubleValue());
         events.publish(new TradeEvent(UUID.randomUUID(), saved.getTradeRef(),
-                TradeEvent.EventType.TRADE_CREATED, Instant.now(), actor,
-                null, "status=PENDING"));
+                TradeEvent.EventType.TRADE_CREATED, Instant.now(), actor, null, "created"));
         return saved;
     }
 
     public Trade update(Long id, TradeRequest req, String actor) {
-        var t = tradeRepo.findById(id)
-                .orElseThrow(() -> new TradeNotFoundException("id " + id));
-        String before = "status=" + t.getStatus() + ",qty=" + t.getQuantity() + ",price=" + t.getPrice();
-
-        t.setAssetClass(req.assetClass());
-        t.setSide(req.side());
+        Trade t = tradeRepo.findById(id)
+                .orElseThrow(() -> new TradeNotFoundException("id=" + id));
         t.setQuantity(req.quantity());
         t.setPrice(req.price());
+        t.setSide(req.side());
         t.setTradeDate(req.tradeDate());
         Trade saved = tradeRepo.save(t);
-
         events.publish(new TradeEvent(UUID.randomUUID(), saved.getTradeRef(),
-                TradeEvent.EventType.TRADE_UPDATED, Instant.now(), actor,
-                before, "qty=" + saved.getQuantity() + ",price=" + saved.getPrice()));
+                TradeEvent.EventType.TRADE_UPDATED, Instant.now(), actor, "before", "after"));
         return saved;
     }
 
     public Trade updateStatus(Long id, String status, String actor) {
-        var t = tradeRepo.findById(id)
-                .orElseThrow(() -> new TradeNotFoundException("id " + id));
-        String before = "status=" + t.getStatus();
+        Trade t = tradeRepo.findById(id)
+                .orElseThrow(() -> new TradeNotFoundException("id=" + id));
         t.setStatus(status);
         Trade saved = tradeRepo.save(t);
-
         events.publish(new TradeEvent(UUID.randomUUID(), saved.getTradeRef(),
-                TradeEvent.EventType.TRADE_UPDATED, Instant.now(), actor,
-                before, "status=" + status));
+                TradeEvent.EventType.TRADE_UPDATED, Instant.now(), actor, null, status));
         return saved;
     }
 
     public void softDelete(Long id, String actor) {
-        var t = tradeRepo.findById(id)
-                .orElseThrow(() -> new TradeNotFoundException("id " + id));
+        Trade t = tradeRepo.findById(id)
+                .orElseThrow(() -> new TradeNotFoundException("id=" + id));
         t.softDelete();
         tradeRepo.save(t);
-
         events.publish(new TradeEvent(UUID.randomUUID(), t.getTradeRef(),
-                TradeEvent.EventType.TRADE_CANCELLED, Instant.now(), actor,
-                "deleted_at=null", "deleted_at=" + t.getDeletedAt()));
+                TradeEvent.EventType.TRADE_CANCELLED, Instant.now(), actor, null, null));
     }
 
     @Transactional(readOnly = true)
     public Page<Trade> list(LocalDate from, LocalDate to, String status, Long counterpartyId, Pageable pageable) {
         Specification<Trade> spec = Specification
-                .where(tradeDateBetween(from, to))
-                .and(hasStatus(status))
+                .where(hasStatus(status))
+                .and(tradeDateBetween(from, to))
                 .and(hasCounterparty(counterpartyId));
         return tradeRepo.findAll(spec, pageable);
     }
