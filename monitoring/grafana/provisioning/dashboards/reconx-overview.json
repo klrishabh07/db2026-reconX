@@ -7,40 +7,137 @@
     {
       "type": "timeseries",
       "title": "API request rate by endpoint (ADV087)",
+      "description": "Requests per second broken out by URI — the first panel an SRE opens during an incident.",
       "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
       "targets": [
-        { "expr": "sum(rate(http_server_requests_seconds_count[1m])) by (uri)", "legendFormat": "{{uri}}" }
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count[1m])) by (uri)",
+          "legendFormat": "{{uri}}"
+        }
       ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
     },
     {
       "type": "timeseries",
-      "title": "API P95 latency (ADV088)",
+      "title": "API latency P50 / P95 / P99 (ADV088)",
+      "description": "Server-side histogram percentiles. P95 > 500ms for 3 min triggers the HighApiLatencyP95 alert.",
       "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri))", "legendFormat": "{{uri}}" }
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri))",
+          "legendFormat": "P50 {{uri}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri))",
+          "legendFormat": "P95 {{uri}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri))",
+          "legendFormat": "P99 {{uri}}"
+        }
       ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
     },
     {
       "type": "stat",
       "title": "Open recon breaks (ADV091)",
+      "description": "Current count of OPEN reconciliation breaks. Green < 10, Yellow 10-50, Red > 50.",
       "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
       "targets": [{ "expr": "recon_break_count" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 10   },
+              { "color": "red",    "value": 50   }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value"
+      },
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 }
     },
     {
       "type": "timeseries",
       "title": "Trades created / sec (ADV089)",
+      "description": "Rate of the trade_created_total counter — are trades flowing right now?",
       "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
-      "targets": [{ "expr": "sum(rate(trade_created_total[1m]))" }],
+      "targets": [
+        {
+          "expr": "sum(rate(trade_created_total[1m]))",
+          "legendFormat": "Trades created /s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "unit": "trades/s"
+          }
+        }
+      },
       "gridPos": { "h": 8, "w": 12, "x": 6, "y": 8 }
+    },
+    {
+      "type": "piechart",
+      "title": "Trades by status (ADV092)",
+      "description": "Live distribution of trades across all statuses. Slices update within one scrape interval (~15s) as trades transition.",
+      "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (status) (trades_by_status)",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "options": {
+        "pieType": "pie",
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        }
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 }
     },
     {
       "type": "timeseries",
       "title": "Reconciliation duration histogram (ADV090)",
+      "description": "Bucket rates for the reconciliation timer. Switch panel type to Heatmap for density view. P95 line: histogram_quantile(0.95, ...).",
       "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
-      "targets": [{ "expr": "sum(rate(reconciliation_duration_seconds_bucket[5m])) by (le)" }],
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(reconciliation_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(reconciliation_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(reconciliation_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 }
     }
   ],
@@ -51,5 +148,5 @@
   "time": { "from": "now-15m", "to": "now" },
   "title": "ReconX Overview",
   "uid": "reconx-overview",
-  "version": 1
+  "version": 2
 }

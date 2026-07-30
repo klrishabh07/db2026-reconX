@@ -36,6 +36,10 @@ spring:
     caffeine:
       spec: maximumSize=500,expireAfterWrite=5m
 
+  # ADV096 — JMX MBean exposure (ReconConfigMBean)
+  jmx:
+    enabled: true
+
   # ADV128 — Kafka producer/consumer defaults. Topics are created at startup
   # by KafkaTopicsConfig (see com.dbtraining.reconx.kafka.KafkaTopicsConfig).
   kafka:
@@ -69,7 +73,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,env,loggers
+        include: health,info,metrics,prometheus,env,loggers,caches
       base-path: /actuator
   endpoint:
     health:
