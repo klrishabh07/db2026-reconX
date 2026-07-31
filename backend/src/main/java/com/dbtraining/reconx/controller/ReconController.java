@@ -8,11 +8,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,7 +36,9 @@ public class ReconController {
         // TODO(TICKET-ADV068): generate a jobId, write a row to recon_jobs, and
         //   return 202 Accepted with {"jobId": ..., "status": "QUEUED"}. A
         //   worker (Day 6 / Kafka consumer) picks the job up asynchronously.
-        throw new UnsupportedOperationException("TICKET-ADV068");
+        String jobId = UUID.randomUUID().toString();
+        return ResponseEntity.accepted().body(Map.of("jobId", jobId, "status", "QUEUED"));
+        // throw new UnsupportedOperationException("TICKET-ADV068");
     }
 
     @GetMapping("/jobs/{jobId}/results")
@@ -47,7 +47,9 @@ public class ReconController {
         // TODO(TICKET-ADV069): once recon_jobs + recon_breaks tables are wired,
         //   return breaks.findByJobId(jobId). Day-0 returns an empty list so
         //   the React breaks-table renders "no breaks" gracefully.
-        return Collections.emptyList();
+        
+        return breaks.findAll();
+        // return Collections.emptyList();
     }
 
     @PutMapping("/results/{id}/resolve")
@@ -57,6 +59,10 @@ public class ReconController {
         // TODO(TICKET-ADV070): load the ReconBreak, call rb.resolve(note), save,
         //   and return 200 with the updated entity. Throw TradeNotFoundException
         //   when the id is unknown.
-        throw new UnsupportedOperationException("TICKET-ADV070");
+        ReconBreak rb = breaks.findById(id)
+                            .orElseThrow(() -> new TradeNotFoundException("recon_break" + id));
+        rb.resolve(body.getOrDefault("note", "manually resolved"));
+        return ResponseEntity.ok(breaks.save(rb));
+        // throw new UnsupportedOperationException("TICKET-ADV070");
     }
 }
