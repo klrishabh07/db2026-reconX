@@ -1,201 +1,284 @@
-# Day 5 — Solved Files & How To Run
+# Day 5 — Solved Files Guide
+### Topic: JWT Security + REST Controllers (ADV063–ADV080)
 
-Day 5 is the security day — you turn the permissive Day-1 filter chain
-into a real JWT + RBAC setup, and you flesh out the four REST
-controllers behind it.
-
-**How this folder works**
-
-The real `backend/` tree ships the three security files as starter
-stubs — method bodies do `throw new UnsupportedOperationException("…")`
-with a `TODO(TICKET-…)` comment above each. This folder contains
-**complete drop-in replacement files** for those three:
-
-- `JwtTokenProvider` — HS256 token generate/parse using jjwt 0.12.
-- `JwtAuthenticationFilter` — reads `Authorization: Bearer …`, parses the token, populates `SecurityContextHolder`.
-- `SecurityConfig` — stateless JWT filter chain with role-based matchers for `/v1/trades/**`, `/v1/recon/**`, `/v1/audit/**`, plus `@EnableMethodSecurity`.
-
-You can **overlay** the whole `backend/` subtree in one shot, or
-**open each file** in this folder side-by-side with the starter to
-read the diff first.
-
-**What is deliberately left as your exercise (TODOs still open in your own code):**
-
-- The four REST controllers (`AuthController`, `TradeController`, `ReconController`, `AuditController`) — 11 small method bodies, each is a straightforward service delegation. The hint pseudocode is inline in each TODO block in your own code, so you can fill them in from the stubs alone without opening the student guide. See the "Finish the controllers" section below.
-
-**In this file:**
-
-1. One-line copy command.
-2. Ticket status table.
-3. What each shipped file does.
-4. Step-by-step run guide — including a curl walkthrough that proves JWT + RBAC are enforcing.
-5. Guidance for finishing the four controllers.
-6. Troubleshooting.
+> **Zero Java experience needed to copy these files in.**
+> Read this top-to-bottom before you touch a single file.
 
 ---
 
-## Quick start
+## What Day 5 is about
 
-```bash
-# From the project root:
-cp -R day5-solved-files/backend/ backend/
+Before Day 5 the API accepts every request — no login, no tokens, no
+role checks. By end of day every protected endpoint requires a signed
+JSON Web Token and Spring Security enforces who can do what.
+
+```
+BEFORE Day 5                    AFTER Day 5
+─────────────────────────────   ─────────────────────────────
+GET /v1/trades  →  200 OK       GET /v1/trades  →  403 Forbidden
+POST /v1/trades →  200 OK       POST /v1/trades →  401 Unauthorized
+DELETE /trade/1 →  200 OK       DELETE /trade/1 →  403 (need ADMIN)
+
+No login needed                 Must POST /auth/login first
 ```
 
 ---
 
-## Ticket status
+## How a JWT request flows through the app
 
-| Ticket | Status | Where |
-|---|---|---|
-| ADV063 — REST controller skeletons | ✓ already in starter | `controller/*.java` |
-| ADV064–067 — TradeService CRUD | ✓ Day-4 folder | `service/TradeService.java` |
-| ADV068 — POST /v1/recon/run | ⏳ TODO in your code | `ReconController.runRecon` |
-| ADV069 — GET /v1/recon/jobs/{id}/results | ⏳ already returns `[]` | `ReconController.results` |
-| ADV070 — PUT /v1/recon/results/{id}/resolve | ⏳ TODO in your code | `ReconController.resolve` |
-| ADV071 — GET /v1/audit/trades/{ref} | ⏳ already returns `[]` | `AuditController.history` |
-| ADV072 — JwtTokenProvider | ✓ in this folder | `security/JwtTokenProvider.java` |
-| ADV072 — POST /auth/login | ⏳ TODO in your code | `AuthController.login` |
-| ADV073 — JwtAuthenticationFilter | ✓ in this folder | `security/JwtAuthenticationFilter.java` |
-| ADV074 — SecurityConfig RBAC + `@EnableMethodSecurity` | ✓ in this folder | `security/SecurityConfig.java` |
-| ADV075/076 — CORS + rate limiting | ✓ dependency-managed in starter | pom.xml + config |
-| ADV077–080 — API versioning, DTO validation, PATCH shape | ✓ already in starter | `controller/*.java` |
+```
+Browser / curl
+      │
+      │  Authorization: Bearer eyJhbG...
+      ▼
+┌─────────────────────────────────────────────┐
+│  JwtAuthenticationFilter  (runs every req)  │
+│  1. Extract token from header               │
+│  2. Verify signature + expiry               │
+│  3. Set SecurityContextHolder               │
+└─────────────┬───────────────────────────────┘
+              │  valid token → user + role loaded
+              ▼
+┌─────────────────────────────────────────────┐
+│  SecurityConfig  (checks role matchers)     │
+│  GET /v1/trades?  → needs VIEWER+           │
+│  POST /v1/trades? → needs TRADER+           │
+│  DELETE /v1/**?   → needs ADMIN only        │
+└─────────────┬───────────────────────────────┘
+              │  allowed
+              ▼
+┌─────────────────────────────────────────────┐
+│  Controller → Service → Repository          │
+│  Returns 200 with JSON response             │
+└─────────────────────────────────────────────┘
+```
 
 ---
 
-## What each shipped file does
+## Role-based access control at a glance
 
-### `JwtTokenProvider.java`
+```
+Endpoint                     VIEWER  TRADER  RECON_ANALYST  ADMIN
+────────────────────────     ──────  ──────  ─────────────  ─────
+GET  /auth/login              open    open       open        open
+GET  /v1/trades/**             ✓       ✓          ✓           ✓
+POST /v1/trades                        ✓                      ✓
+PUT/PATCH /v1/trades/**                ✓                      ✓
+DELETE /v1/trades/**                                          ✓
+/v1/recon/**                                    ✓             ✓
+/v1/audit/**                                    ✓             ✓
+/actuator/health              open    open       open        open
+/swagger-ui/**                open    open       open        open
+```
 
-Wraps jjwt 0.12. `generate(email, role)` signs an HS256 JWT whose
-subject is the user's email, whose issuer is the configured
-`reconx.security.jwt.issuer`, and whose expiry comes from
-`reconx.security.jwt.expiration-minutes`. Role goes into a custom
-`"role"` claim. `parse(token)` verifies signature + issuer and returns
-the `Claims`. The secret must be ≥ 256 bits (HS256 requirement) — the
-default in `application.yml` is fine for dev.
+---
 
-### `JwtAuthenticationFilter.java`
+## What this folder ships
 
-Extends `OncePerRequestFilter` so it runs exactly once per request.
-Reads `Authorization: Bearer …`, parses via `JwtTokenProvider`,
-wraps the role as `ROLE_<name>` and stores a
-`UsernamePasswordAuthenticationToken` in `SecurityContextHolder`. On a
-bad or expired token it clears the context (rather than throwing) — so
-the request continues, and Spring's normal auth path produces a clean
-401/403 when the request hits a protected endpoint.
+| File | Ticket | What it does |
+|------|--------|--------------|
+| `security/JwtTokenProvider.java`      | ADV072 | Signs + verifies HS256 JWTs |
+| `security/JwtAuthenticationFilter.java` | ADV073 | Reads `Authorization: Bearer …` on every request |
+| `security/SecurityConfig.java`        | ADV074 | Stateless filter chain + RBAC role matchers |
+| `controller/AuthController.java`      | ADV072 | POST /auth/login — returns JWT on valid credentials |
+| `controller/TradeController.java`     | ADV063–067 | Full CRUD for trades |
+| `controller/ReconController.java`     | ADV068–070 | Recon run + resolve break |
+| `controller/AuditController.java`     | ADV071 | Audit history by tradeRef |
 
-### `SecurityConfig.java`
+---
 
-Stateless filter chain (`SessionCreationPolicy.STATELESS`), CSRF
-disabled (safe for a stateless JWT API), H2 console frameOptions
-disabled (dev-only convenience), and the RBAC matchers below:
+## Before you copy — what you should observe
 
-| Path | Roles |
-|---|---|
-| `/auth/login`, `/actuator/health/**`, `/actuator/info`, `/actuator/prometheus`, `/swagger-ui/**`, `/v3/api-docs/**`, `/h2/**` | permitAll |
-| `GET /v1/trades/**` | VIEWER, TRADER, RECON_ANALYST, ADMIN |
-| `POST /v1/trades` | TRADER, ADMIN |
-| `PUT /v1/trades/**`, `PATCH /v1/trades/**` | TRADER, ADMIN |
-| `DELETE /v1/trades/**` | ADMIN only |
-| `/v1/recon/**` | RECON_ANALYST, ADMIN |
-| `/v1/audit/**` | RECON_ANALYST, ADMIN |
-| everything else | authenticated |
+Open `backend/src/main/java/com/dbtraining/reconx/security/` in your
+editor. You will see method bodies like:
 
-`@EnableMethodSecurity` on the class enables `@PreAuthorize` on service
-methods.
+```java
+public String generate(String email, String role) {
+    // TODO(TICKET-ADV072): generate a signed HS256 JWT here.
+    throw new UnsupportedOperationException("TICKET-ADV072");
+}
+```
 
-`JwtAuthenticationFilter` is registered before
-`UsernamePasswordAuthenticationFilter`.
+Run the app right now and try:
+
+```
+curl http://localhost:8081/api/v1/trades
+```
+
+You get **200 OK with an empty list** — the endpoint is completely
+unprotected. That is the problem Day 5 fixes.
+
+---
+
+## Copy the solved files
+
+### Mac / Linux
+
+```bash
+# From the project root
+cp -R day5-solved-files/backend/ backend/
+```
+
+### Windows (Command Prompt)
+
+```cmd
+xcopy /E /Y day5-solved-files\backend\ backend\
+```
+
+### Windows (PowerShell)
+
+```powershell
+Copy-Item -Recurse -Force day5-solved-files\backend\* backend\
+```
 
 ---
 
 ## Run the project
 
-### Before you start
-
-1. **Java 21.** `export JAVA_HOME=$(/usr/libexec/java_home -v 21)`.
-2. **You're in the project root.**
-3. **You copied the solved files:** `cp -R day5-solved-files/backend/ backend/`.
-4. **Days 1–4 are applied** — Day 5 depends on the audit-log fix, sealed hierarchy, recon engine, and the persistence layer:
-   ```bash
-   cp -R day1-solved-files/backend/ backend/
-   cp -R day2-solved-files/backend/ backend/
-   cp -R day3-solved-files/backend/ backend/
-   cp -R day4-solved-files/backend/ backend/
-   ```
-
-### Step 1 — Compile
+### Mac / Linux
 
 ```bash
+# 1. Make sure Java 21 is active
+java -version       # should say openjdk 21
+
+# If not:
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+
+# 2. Build and run from the backend folder
 cd backend
-./mvnw -q clean compile   # want exit 0
-```
-
-### Step 2 — Boot
-
-```bash
+./mvnw clean compile
 ./mvnw spring-boot:run
 ```
 
-Wait for `Started ReconxApplication in ~4 seconds`.
+### Windows (Command Prompt)
 
-### Step 3 — Prove the security is enforcing
-
-```bash
-# permitAll — should return 200 with {"status":"UP"}
-curl -i http://localhost:8081/api/actuator/health
-
-# protected — anonymous request should be rejected (403 without JWT)
-curl -i http://localhost:8081/api/v1/trades
+```cmd
+cd backend
+mvnw.cmd clean compile
+mvnw.cmd spring-boot:run
 ```
 
-If you get `200` on the health endpoint and `403` (or `401`) on
-`/v1/trades`, the JWT + RBAC chain is doing its job.
+### Windows (PowerShell)
 
-Once you fill in `AuthController.login`, you'll be able to:
-
-```bash
-# Exchange credentials for a JWT
-curl -s -X POST http://localhost:8081/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"admin@reconx.local","password":"password"}' | jq -r .token
-
-# Then use it
-TOKEN=$(...as above...)
-curl -i -H "Authorization: Bearer $TOKEN" http://localhost:8081/api/v1/trades
+```powershell
+cd backend
+.\mvnw.cmd clean compile
+.\mvnw.cmd spring-boot:run
 ```
 
-Hit `Ctrl+C` when done.
+> **MapStruct error on Windows?** Run `.\mvnw.cmd clean` first, then try again.
+> IntelliJ sometimes compiles MapStruct before Maven does, causing a conflict.
+
+Wait until you see:
+
+```
+Started ReconxApplication in X.XXX seconds
+```
 
 ---
 
-## Finish the controllers (your exercise)
+## What to observe AFTER copying
 
-Four files, 11 TODOs, all straightforward. Each TODO in your own code
-already has hint pseudocode inline — you don't need to open the student
-guide to solve them. Here's the map:
+### Test 1 — Health check still works (no token needed)
 
-| File | Method | What to do |
-|---|---|---|
-| `AuthController.login` | POST /auth/login | `users.findByEmail(req.email())`, `encoder.matches(req.password(), user.passwordHash())`, then `jwt.generate(email, role)` and return `new LoginResponse(token, "Bearer", jwt.expirationSeconds(), role)`. On mismatch, `throw new InvalidTradeException("Invalid credentials")` — do NOT leak which check failed. |
-| `TradeController.list/get/create/update/updateStatus/softDelete/exportCsv/importCsv` | GET/POST/PUT/PATCH/DELETE `/v1/trades` | Each delegates to `tradeService.<method>(...)` and maps the result via `TradeMapper` where needed. The CSV import/export methods already have full implementations in the starter. |
-| `ReconController.runRecon` | POST /v1/recon/run | Generate a `String jobId = UUID.randomUUID().toString()`, persist a `recon_jobs` row (repo already exists), return `ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("jobId", jobId, "status", "QUEUED"))`. |
-| `ReconController.resolve` | PUT /v1/recon/results/{id}/resolve | Load `ReconBreak` by id (`.orElseThrow(() -> new TradeNotFoundException(id.toString()))`), call `rb.resolve(body.get("note"))`, save, return the entity. |
-| `AuditController.history/events` | GET /v1/audit/trades/{ref}[/events] | `return auditRepo.findByTradeRefOrderByEventTimestampAsc(tradeRef);` for both. |
+```bash
+curl http://localhost:8081/api/actuator/health
+```
 
-After you paste those in, restart the app and hit `/api/swagger-ui.html`
-to try the endpoints interactively — the green "Authorize" button
-accepts the JWT you got from `/auth/login`.
+Expected: `{"status":"UP"}`
+
+### Test 2 — Protected endpoint now rejects anonymous requests
+
+```bash
+curl -i http://localhost:8081/api/v1/trades
+```
+
+Expected: `HTTP/1.1 403 Forbidden`
+
+This is the proof that JWT security is now enforced.
+
+### Test 3 — Get a token and use it
+
+```bash
+# Step 1: login (replace password with the seeded user's password)
+curl -s -X POST http://localhost:8081/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@db.com","password":"admin123"}'
+```
+
+You get back:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "type": "Bearer",
+  "expiresIn": 3600,
+  "role": "ADMIN"
+}
+```
+
+```bash
+# Step 2: use the token
+TOKEN="eyJhbGciOiJIUzI1NiJ9..."
+
+curl -H "Authorization: Bearer $TOKEN" \
+     http://localhost:8081/api/v1/trades
+```
+
+Expected: `200 OK` with a JSON list of trades.
+
+### Windows PowerShell equivalent
+
+```powershell
+# Step 1: login
+$body = '{"email":"admin@db.com","password":"admin123"}'
+$resp = Invoke-RestMethod -Method Post `
+        -Uri "http://localhost:8081/api/auth/login" `
+        -ContentType "application/json" `
+        -Body $body
+$TOKEN = $resp.token
+
+# Step 2: use the token
+Invoke-RestMethod -Uri "http://localhost:8081/api/v1/trades" `
+                  -Headers @{ Authorization = "Bearer $TOKEN" }
+```
+
+---
+
+## Try it in Swagger UI (easier than curl)
+
+Open your browser: **http://localhost:8081/api/swagger-ui.html**
+
+1. Click `POST /auth/login` → `Try it out` → enter your credentials → `Execute`.
+2. Copy the `token` value from the response.
+3. Click the green **Authorize** button at the top right.
+4. Paste `Bearer <your-token>` and click **Authorize**.
+5. Now every endpoint you try is automatically authenticated.
+
+---
+
+## Ticket checklist
+
+| # | Ticket | Before | After |
+|---|--------|--------|-------|
+| ADV063 | Controller skeletons | Methods throw `UnsupportedOperationException` | Methods delegate to service layer |
+| ADV068 | POST /recon/run | Returns stub `jobId` | Returns 202 with real UUID jobId |
+| ADV070 | PUT /recon/results/{id}/resolve | Not implemented | Loads break, calls `rb.resolve(note)`, saves |
+| ADV071 | GET /audit/trades/{ref} | Returns `[]` | Returns ordered audit log from DB |
+| ADV072 | JwtTokenProvider | Throws on every call | Signs + verifies real HS256 tokens |
+| ADV072 | POST /auth/login | Not wired | Returns JWT on valid email+password |
+| ADV073 | JwtAuthenticationFilter | Not in chain | Parses token on every request |
+| ADV074 | SecurityConfig | Permits everything | Role-based matchers enforced |
 
 ---
 
 ## Troubleshooting
 
-- **`WeakKeyException` at startup** — your `JWT_SECRET` env var is shorter than 32 bytes. Use the default in `application.yml` for dev.
-- **All requests return 403 including `/auth/login`** — you overlaid `SecurityConfig` but didn't include `JwtAuthenticationFilter` on the classpath. Confirm all three security files came over.
-- **`Cannot resolve @EnableMethodSecurity`** — Spring Security 6.x moved this annotation; ensure Spring Boot parent is 3.x (already true in this project).
-- **Port 8081 in use** — `lsof -i :8081; kill <PID>`.
-- **Overlay lost the Day-1 audit-log fix** — re-run `cp -R day1-solved-files/backend/ backend/`.
-
-You're through the security wiring — the hard part. The controllers
-are a warm-down.
+| Problem | Fix |
+|---------|-----|
+| `WeakKeyException` at startup | JWT secret is shorter than 32 chars. The default `application.yml` secret is fine — don't override `JWT_SECRET` with something short |
+| `/auth/login` returns 403 | `JwtAuthenticationFilter` or `SecurityConfig` didn't copy over. Re-run the copy command |
+| `Cannot resolve @EnableMethodSecurity` | You are on Spring Boot 2.x. This project requires Spring Boot 3.x (already set in `pom.xml`) |
+| Port 8081 in use (Mac/Linux) | `lsof -i :8081` then `kill <PID>` |
+| Port 8081 in use (Windows) | `netstat -ano \| findstr :8081` then `taskkill /PID <PID> /F` |
+| Token always returns 401 | Token may have expired (default 60 min). Login again to get a fresh one |
+| `Invalid credentials` even with correct password | Seeds use BCrypt hashes. Confirm you are using the exact password from `008-seed.xml` |

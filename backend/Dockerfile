@@ -3,12 +3,17 @@
 #
 # Stage 1: build the JAR with Temurin JDK 25 + Maven.
 # Stage 2: copy ONLY the JAR onto a slim JRE image.
+#
+# Windows fix: sed strips \r (CRLF) from mvnw before executing it.
+# Without this, Windows git checkout corrupts the shebang line and
+# Docker reports "./mvnw: not found" (exit 127) on Linux.
 # ============================================================================
 
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /workspace
 COPY pom.xml mvnw ./
 COPY .mvn .mvn
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 RUN ./mvnw -q -B dependency:go-offline || true
 COPY src src
 RUN ./mvnw -q -B -DskipTests package && \
@@ -19,6 +24,6 @@ RUN addgroup -S reconx && adduser -S reconx -G reconx
 USER reconx
 WORKDIR /app
 COPY --from=build /workspace/app.jar app.jar
-EXPOSE 8080
+EXPOSE 8081
 ENV JAVA_OPTS=""
 ENTRYPOINT ["sh","-c","java $JAVA_OPTS -jar app.jar"]

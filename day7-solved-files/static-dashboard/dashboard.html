@@ -4,6 +4,13 @@
   <meta charset="utf-8" />
   <title>ReconX (static) — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- TICKET-ADV100 — read saved theme BEFORE the stylesheet paints to eliminate FOUC -->
+  <script>
+    (function () {
+      var saved = localStorage.getItem('reconx-theme') || 'light';
+      document.documentElement.dataset.theme = saved;
+    })();
+  </script>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body class="app-shell">
@@ -14,8 +21,9 @@
       <a href="trades.html">Trades</a>
       <a href="recon.html">Recon</a>
     </nav>
-    <div class="connection"><span id="connection-status" class="connection-status">Demo</span></div>
-    <button id="theme-toggle" aria-label="Toggle light/dark theme">🌗</button>
+    <!-- TICKET-ADV104 — SSE connection status badge -->
+    <span id="sse-status" class="sse-badge">Connecting…</span>
+    <button id="theme-toggle" aria-label="Toggle light/dark theme">&#127767;</button>
   </header>
 
   <div class="app-body">
@@ -28,48 +36,30 @@
       </ul>
     </aside>
 
-    <main class="app-main" role="main">
-      <section aria-labelledby="kpi">
-        <h2 id="kpi">Today at a glance</h2>
-        <div class="dashboard-grid">
-          <article class="stat-card"><h3>Trades</h3><p>120</p></article>
-          <article class="stat-card"><h3>Matched</h3><p>105</p></article>
-          <article class="stat-card stat-card--warn"><h3>Open breaks</h3><p>15</p></article>
-        </div>
-      </section>
+  <main class="layout__main" role="main">
+    <section aria-labelledby="kpi">
+      <h2 id="kpi">Today at a glance</h2>
+      <div class="stat-grid">
+        <article class="stat-card"><h3>Trades</h3><p>120</p></article>
+        <article class="stat-card"><h3>Matched</h3><p>105</p></article>
+        <article class="stat-card stat-card--warn"><h3>Open breaks</h3><p>15</p></article>
+        <article class="stat-card"><h3>Notional</h3><p>$24.3M</p></article>
+      </div>
+      <!-- TICKET-ADV102 — pulsing danger alert -->
+      <div class="alert--danger" role="alert">
+        &#9888; 15 open reconciliation breaks &mdash; investigate now
+      </div>
+    </section>
 
-      <section aria-labelledby="feed">
-        <h2 id="feed">Live trade feed</h2>
-        <div id="trade-feed" role="status" aria-live="polite" aria-atomic="false"></div>
-      </section>
+    <section aria-labelledby="feed">
+      <h2 id="feed">Live trade feed</h2>
+      <!-- TICKET-ADV100 — aria-live so screen readers announce new trades -->
+      <div id="trade-feed" role="status" aria-live="polite" aria-atomic="false"></div>
+    </section>
+  </main>
 
-      <section aria-labelledby="trades">
-        <h2 id="trades">Trades table</h2>
-        <div class="table-wrap">
-          <table id="trades-table" class="trades-table">
-            <thead>
-              <tr>
-                <th data-key="tradeRef">Trade Ref <span class="col-resize-handle"></span></th>
-                <th data-key="symbol">Symbol <span class="col-resize-handle"></span></th>
-                <th data-key="qty">Qty <span class="col-resize-handle"></span></th>
-                <th data-key="price">Price <span class="col-resize-handle"></span></th>
-                <th data-key="status">Status <span class="col-resize-handle"></span></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>EQU-20260603-0001</td><td>SAP.DE</td><td>1000</td><td>125.50</td><td>MATCHED</td></tr>
-              <tr><td>FX-20260603-0001</td><td>EUR/USD</td><td>1000000</td><td>1.0852</td><td>PENDING</td></tr>
-              <tr><td>EQU-20260603-0002</td><td>AAPL</td><td>500</td><td>178.20</td><td>BREAK</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-    </main>
-  </div>
-
-  <footer class="app-footer" role="contentinfo">
-    <small>ReconX TDI 2026 · static dashboard (Day 7)</small>
+  <footer class="layout__footer" role="contentinfo">
+    <small>ReconX TDI 2026 &middot; static dashboard (Day 7)</small>
   </footer>
 
   <script src="js/theme.js"></script>

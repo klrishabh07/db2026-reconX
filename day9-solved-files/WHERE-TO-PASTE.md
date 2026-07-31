@@ -3,80 +3,149 @@
 Day 9 is the Kafka day. You wire the event backbone: a producer that
 publishes every trade-state change onto `trade-events`, three consumers
 that fan out to reconciliation / audit / alerts, an error handler with
-retry + DLQ, and a topics-config bean that declares everything on
-startup so `docker compose up` is one command.
+DLQ + exponential-backoff retry, a DLQ inspector and replay endpoint,
+an event-sourced audit rebuild, Kafka metrics wired to Prometheus, three
+Grafana panels, and two Testcontainers integration tests.
 
 **How this folder works**
 
-The real `backend/` tree ships all six Kafka files as starter stubs —
-method bodies do `throw new UnsupportedOperationException("…")` with a
-`TODO(TICKET-…)` comment above each. This folder contains **complete
-drop-in replacement files** for all six:
+The real `backend/` tree ships all Java files as starter stubs with
+`throw new UnsupportedOperationException("TODO(TICKET-ADVxxx)")` method
+bodies. This folder contains **complete drop-in replacements** for every
+file that needs a code change. The `application.yml` and Grafana JSON
+files are new additions that do not exist in the starter at all.
 
-- ✅ `KafkaTopicsConfig.java` — declares all four topics via `TopicBuilder`.
-- ✅ `TradeEventProducer.java` — publishes via `KafkaTemplate.send(topic, tradeRef, event)` with success/failure logging.
-- ✅ `ReconciliationConsumer.java` — `@KafkaListener` on `trade-events` (group `recon-service`).
-- ✅ `AuditEventConsumer.java` — `@KafkaListener` on `trade-events` (group `audit-service`), persists to `AuditLogEntry`.
-- ✅ `AlertConsumer.java` — `@KafkaListener` on `system-alerts` (group `alert-service`).
-- ✅ `KafkaErrorHandlerConfig.java` — `DefaultErrorHandler` with `ExponentialBackOff(1000, 2.0)` capped at 3 attempts + `DeadLetterPublishingRecoverer` routing to `{topic}-dlq`.
+You can **overlay** the whole tree in one shot, or **open each file**
+side-by-side with the starter to read the diff first.
 
-You can **overlay** the whole `backend/` subtree in one shot, or
-**open each file** in this folder side-by-side with the starter to
-read the diff first.
-
-## Quick start
+## Quick start — one-shot overlay
 
 ```bash
-# From the project root — one-shot overlay:
+# From the project root:
 cp -R day9-solved-files/backend/ backend/
+cp -R day9-solved-files/monitoring/ monitoring/
 ```
 
 ---
 
-## Ticket status
+## Ticket status — all 18 tickets (ADV128–ADV145)
 
-Day 9 has 18 tickets (ADV128–145). The heavy config lives in
-`application.yml` (already in the starter) and in `docker-compose.yml`
-(project root, also in the starter).
-
-| Ticket | Status | Where |
+| Ticket | File(s) in this folder | Status |
 |---|---|---|
-| ADV128 — Declare topics on startup | ⏳ TODO in your code | `KafkaTopicsConfig.java` |
-| ADV129 — `TradeEventProducer.publish(TradeEvent)` | ⏳ TODO in your code | `TradeEventProducer.java` |
-| ADV130 — TradeEvent DTO shape | ✓ already in starter | `dto/TradeEvent.java` |
-| ADV131 — `ReconciliationConsumer` (@KafkaListener on trade-events) | ⏳ TODO in your code | `ReconciliationConsumer.java` |
-| ADV132 — `AuditEventConsumer` writes to audit_log | ⏳ TODO in your code | `AuditEventConsumer.java` |
-| ADV133 — `AlertConsumer` on system-alerts | ⏳ TODO in your code | `AlertConsumer.java` |
-| ADV134 — Error handler with retry + DLQ | ⏳ TODO in your code | `KafkaErrorHandlerConfig.java` |
-| ADV135 — Consumer group config / offset reset | ✓ in `application.yml` | `spring.kafka.consumer.*` |
-| ADV136 — Idempotent producer + ack config | ✓ in `application.yml` | `spring.kafka.producer.*` |
-| ADV137 — Trusted packages for JSON deser | ✓ in `application.yml` | `spring.json.trusted.packages` |
-| ADV138 — `GET /v1/audit/trades/{ref}/events` | ⏳ Day-5 controller TODO | `AuditController.events` |
-| ADV139–142 — Kafka Streams / KTable / windowing | optional stretch | ships as follow-on ticket set |
-| ADV143 — SSE bridge `/api/v1/trades/stream` | ✓ already in starter | `controller/TradeController` (or dedicated SSE controller) |
-| ADV144 — Kafdrop for topic browsing | ✓ in `docker-compose.yml` | port 9000 |
-| ADV145 — Consumer-lag metric | ✓ Micrometer auto-registers `kafka_consumer_lag` when Kafka client is on classpath | — |
+| ADV128 — Declare Kafka topics on startup | `backend/.../kafka/KafkaTopicsConfig.java` | ✅ Solved |
+| ADV129 — TradeEventProducer | `backend/.../kafka/TradeEventProducer.java` | ✅ Solved |
+| ADV130 — TradeEvent DTO shape | `dto/TradeEvent.java` in the starter | ✓ Already in starter |
+| ADV131 — ReconciliationConsumer | `backend/.../kafka/ReconciliationConsumer.java` | ✅ Solved |
+| ADV132 — AuditEventConsumer | `backend/.../kafka/AuditEventConsumer.java` | ✅ Solved |
+| ADV133 — AlertConsumer | `backend/.../kafka/AlertConsumer.java` | ✅ Solved |
+| ADV134 — DLQ via DeadLetterPublishingRecoverer | `backend/.../kafka/KafkaErrorHandlerConfig.java` | ✅ Solved |
+| ADV135 — Exponential backoff retry (1s/2s/4s) | `backend/.../kafka/KafkaErrorHandlerConfig.java` | ✅ Solved (same file as ADV134) |
+| ADV136 — DLQ consumer + replay endpoint | `backend/.../kafka/DlqConsumer.java` + `backend/.../controller/DlqAdminController.java` | ✅ Solved |
+| ADV137 — Event sourcing rebuild | `backend/.../service/TradeAggregator.java` | ✅ Solved |
+| ADV138 — Admin audit endpoint | `backend/.../controller/AuditController.java` | ✅ Solved |
+| ADV139 — Kafka metrics via Micrometer | `backend/.../resources/application.yml` | ✅ Solved |
+| ADV140 — Grafana panel: consumer lag by topic | `monitoring/grafana/.../reconx-kafka.json` | ✅ Solved |
+| ADV141 — Grafana panel: messages/sec produced vs consumed | `monitoring/grafana/.../reconx-kafka.json` | ✅ Solved (same file as ADV140) |
+| ADV142 — Grafana panel: DLQ count + alert rule | `monitoring/grafana/.../reconx-kafka.json` | ✅ Solved (same file as ADV140) |
+| ADV143 — Integration test: end-to-end happy path | `backend/.../test/.../kafka/KafkaPipelineIT.java` | ✅ Solved |
+| ADV144 — Integration test: DLQ on consumer failure | `backend/.../test/.../kafka/DlqRoutingIT.java` | ✅ Solved |
+| ADV145 — AI-assisted Kafka consumer config review | Live Claude session + PR description | N/A — no code file |
 
 ---
 
-## How to finish the six files
+## File map
 
-Each of the six Kafka files in your project already has its
-implementation shape spelled out in the TODO block at the top of the
-file. You don't need to open the student guide to do them — the hint
-pseudocode in your own code is enough. Here's the map:
+```
+day9-solved-files/
+├── backend/
+│   └── src/
+│       ├── main/
+│       │   ├── java/com/dbtraining/reconx/
+│       │   │   ├── controller/
+│       │   │   │   ├── AuditController.java          ← ADV138
+│       │   │   │   └── DlqAdminController.java       ← ADV136 (part 2)
+│       │   │   ├── kafka/
+│       │   │   │   ├── AlertConsumer.java             ← ADV133
+│       │   │   │   ├── AuditEventConsumer.java        ← ADV132
+│       │   │   │   ├── DlqConsumer.java               ← ADV136 (part 1)
+│       │   │   │   ├── KafkaErrorHandlerConfig.java   ← ADV134 + ADV135
+│       │   │   │   ├── KafkaTopicsConfig.java         ← ADV128
+│       │   │   │   ├── ReconciliationConsumer.java    ← ADV131
+│       │   │   │   └── TradeEventProducer.java        ← ADV129
+│       │   │   └── service/
+│       │   │       └── TradeAggregator.java           ← ADV137
+│       │   └── resources/
+│       │       └── application.yml                    ← ADV139
+│       └── test/
+│           └── java/com/dbtraining/reconx/kafka/
+│               ├── KafkaPipelineIT.java               ← ADV143
+│               └── DlqRoutingIT.java                  ← ADV144
+└── monitoring/
+    └── grafana/
+        └── provisioning/
+            └── dashboards/
+                └── reconx-kafka.json                  ← ADV140 + ADV141 + ADV142
+```
+
+---
+
+## How to finish each file
+
+### Kafka files (ADV128–ADV135) — `src/main/java/.../kafka/`
+
+Each file has TODO stubs at the top. The map:
 
 | File | What it needs |
 |---|---|
-| `KafkaTopicsConfig.java` | Four `@Bean NewTopic` methods using `TopicBuilder.name(...).partitions(N).replicas(1).build()`. Topic names: `trade-events`, `recon-results`, `system-alerts`, `trade-events-dlq`. |
-| `TradeEventProducer.java` | Inject `KafkaTemplate<String, TradeEvent>`, then `publish(event)` calls `template.send("trade-events", event.tradeRef(), event)`. Optional: `.whenComplete((res, err) -> ...)` for logging. |
-| `ReconciliationConsumer.java` | `@KafkaListener(topics = "trade-events", groupId = "reconx-recon")` on a method that takes `TradeEvent` and passes it to `ReconciliationEngine`. |
-| `AuditEventConsumer.java` | `@KafkaListener(topics = "trade-events", groupId = "reconx-audit")` on a method that maps `TradeEvent` → `AuditLogEntry` and calls `auditRepo.save(...)`. |
-| `AlertConsumer.java` | `@KafkaListener(topics = "system-alerts", groupId = "reconx-alerts")` — log, optionally publish a metric. |
-| `KafkaErrorHandlerConfig.java` | `@Bean DefaultErrorHandler` with a `DeadLetterPublishingRecoverer(kafkaTemplate, (rec, ex) -> new TopicPartition("trade-events-dlq", rec.partition()))` and a `FixedBackOff` for retries. |
+| `KafkaTopicsConfig.java` | Four `@Bean NewTopic` via `TopicBuilder`: `trade-events` (3P), `recon-results` (2P), `system-alerts` (1P), `trade-events-dlq` (3P) |
+| `TradeEventProducer.java` | `KafkaTemplate.send("trade-events", event.tradeRef(), event)` with `.whenComplete(...)` logging |
+| `ReconciliationConsumer.java` | `@KafkaListener(topics="trade-events", groupId="recon-service")` → enqueue recon job |
+| `AuditEventConsumer.java` | `@KafkaListener(topics="trade-events", groupId="audit-service")` → `auditRepo.save(new AuditLogEntry(...))` |
+| `AlertConsumer.java` | `@KafkaListener(topics="system-alerts", groupId="alert-service")` → log WARN |
+| `KafkaErrorHandlerConfig.java` | `DefaultErrorHandler` with `DeadLetterPublishingRecoverer` + `ExponentialBackOff(1000L, 2.0)` capped at 3 attempts |
 
-Compile after each file; the app boots even with `@KafkaListener` bodies
-throwing, so you can iterate one at a time.
+### DLQ consumer + replay (ADV136)
+
+| File | What it needs |
+|---|---|
+| `DlqConsumer.java` | `@KafkaListener(topics="trade-events-dlq", groupId="dlq-monitor")` → persist `DlqMessage` row |
+| `DlqAdminController.java` | `GET /api/v1/admin/dlq` (list all) + `POST .../replay?eventId&dryRun` + `@PreAuthorize("hasRole('ADMIN')")` |
+
+### Event sourcing (ADV137)
+
+| File | What it needs |
+|---|---|
+| `TradeAggregator.java` | `Optional<JsonNode> rebuild(String tradeRef)` — fold `AuditLogEntry` events ordered by `occurredAt` ASC |
+
+### Audit endpoint (ADV138)
+
+| File | What it needs |
+|---|---|
+| `AuditController.java` | `GET /api/v1/audit/trades/{tradeRef}` and `.../events` returning `List<AuditLogEntry>` + `@PreAuthorize("hasAnyRole('ADMIN','RECON_ANALYST')")` |
+
+### Metrics (ADV139) — `src/main/resources/application.yml`
+
+Three YAML sections to add/merge:
+- `spring.kafka.consumer.properties.metric.reporters: io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics`
+- `spring.kafka.consumer.properties.spring.json.trusted.packages: com.dbtraining.reconx.dto`
+- `management.endpoints.web.exposure.include: health,info,metrics,prometheus,...`
+- `management.metrics.binders.kafka.enabled: true`
+
+### Grafana panels (ADV140–ADV142) — `monitoring/grafana/.../reconx-kafka.json`
+
+Import the `reconx-kafka.json` dashboard into Grafana (Dashboards → Import → Upload JSON).
+It contains four panels in a single "Kafka Health" row:
+- **Consumer lag by topic** — `sum by (topic) (kafka_consumer_records_lag)` with yellow/red thresholds
+- **Throughput: produced vs consumed** — two-series overlay of produce and consume rates
+- **DLQ message count** — Stat panel: total records consumed from `trade-events-dlq`
+- **DLQ depth over time** — time series of `rate(kafka_consumer_records_consumed_total{topic="trade-events-dlq"}[1m])`
+
+### Integration tests (ADV143–ADV144)
+
+| File | What it needs |
+|---|---|
+| `KafkaPipelineIT.java` | `@SpringBootTest @Testcontainers` + static `KafkaContainer` + `@DynamicPropertySource` + Awaitility assertion on `auditRepo.count()` delta |
+| `DlqRoutingIT.java` | Same setup + `@MockBean ReconciliationEngine` throwing on every call + raw `KafkaConsumer` polling `trade-events-dlq` inside Awaitility |
 
 ---
 
@@ -86,83 +155,72 @@ You need Docker for this day — Kafka is not embeddable easily.
 
 ### Before you start
 
-1. **Java 21** on the terminal that runs the backend: `export JAVA_HOME=$(/usr/libexec/java_home -v 21)`.
-2. **Days 1–6 are applied** (Day 9 depends on the earlier layers, especially the recon engine and audit log):
+1. **Java 21**: `export JAVA_HOME=$(/usr/libexec/java_home -v 21)`
+2. **Days 1–8 applied** (Day 9 depends on the recon engine, audit log, and JWT security from earlier days):
    ```bash
-   for d in day1 day2 day3 day4 day5 day6; do cp -R ${d}-solved-files/backend/ backend/; done
+   for d in day1 day2 day3 day4 day5 day6 day7 day8; do
+     cp -R ${d}-solved-files/backend/ backend/ 2>/dev/null || true
+   done
    ```
-3. **Docker Desktop / colima** running: `docker ps` should not error.
+3. **Docker Desktop / colima running**: `docker ps` should not error
 
-### Terminal 1 — Kafka + Kafdrop via docker compose
+### Terminal 1 — Kafka + Kafdrop
 
 ```bash
-cd /Users/siddharthsharma/Downloads/OneDrive_1_22-07-2026
 docker compose up -d kafka kafdrop
-# wait a few seconds
-docker compose logs kafka | tail   # should end with "started (kafka.server.KafkaServer)"
+docker compose logs kafka | tail   # wait for "started (kafka.server.KafkaServer)"
 ```
 
-Kafdrop UI: <http://localhost:9000> (once you finish
-`KafkaTopicsConfig`, the four topics show up here after the first
-backend boot).
+Kafdrop UI: http://localhost:9000
 
 ### Terminal 2 — backend
 
 ```bash
 cd backend
-# Use the "uat" profile so KafkaTopicsConfig is picked up (it's @Profile("!dev & !test"))
 SPRING_PROFILES_ACTIVE=uat ./mvnw spring-boot:run
 ```
 
-Wait for `Started ReconxApplication`. On the dev profile Kafka listener
-failures are non-fatal (`missing-topics-fatal: false`), so the app will
-boot even if Kafka isn't up — but no messages will flow.
-
 ### Prove the pipeline
 
-Once you've filled in the producer + a consumer:
-
 ```bash
-# 1. Log in (Day 5) and POST a trade (Day 5)
-TOKEN=$(curl -s -X POST http://localhost:8081/api/auth/login \
+# 1. Log in
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@reconx.local","password":"password"}' | jq -r .token)
 
-curl -X POST http://localhost:8081/api/v1/trades \
+# 2. POST a trade — triggers TradeEventProducer
+curl -X POST http://localhost:8080/api/v1/trades \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"tradeRef":"EQU-20260603-0001","instrumentId":1,"counterpartyId":1,
        "assetClass":"EQUITY","side":"BUY","quantity":100,"price":100,"tradeDate":"2026-06-03"}'
 
-# 2. Open Kafdrop and browse "trade-events" — the message should be there
+# 3. Browse trade-events in Kafdrop
 open http://localhost:9000
 
-# 3. Check the audit log picked it up
+# 4. Check the audit log
 curl -s -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8081/api/v1/audit/trades/EQU-20260603-0001/events | jq
+  http://localhost:8080/api/v1/audit/trades/EQU-20260603-0001/events | jq
+
+# 5. Run integration tests
+./mvnw -pl backend verify -Dtest=KafkaPipelineIT,DlqRoutingIT
 ```
 
-Hit `Ctrl+C` when done. `docker compose down` cleans up Kafka.
+### Import the Grafana dashboard
 
----
-
-## What success looks like
-
-- `docker compose up -d kafka kafdrop` reports "Started".
-- Kafdrop at <http://localhost:9000> lists `trade-events`, `recon-results`, `system-alerts`, `trade-events-dlq` after the first backend boot.
-- POSTing a trade puts a message on `trade-events` (browse via Kafdrop).
-- The audit-log consumer writes a row into `audit_log` — `GET /v1/audit/trades/{ref}/events` returns it.
-- Deliberately throw inside a consumer, POST another trade → the message ends up in `trade-events-dlq` after N retries.
-- `/actuator/prometheus | grep kafka_consumer_lag` reports current lag per consumer group.
+```bash
+docker compose up -d prometheus grafana
+# Grafana: http://localhost:3000 (admin / admin)
+# Dashboards → Import → Upload JSON → select day9-solved-files/monitoring/grafana/provisioning/dashboards/reconx-kafka.json
+```
 
 ---
 
 ## Troubleshooting
 
-- **`Broker may not be available`** — Kafka container isn't up or the port isn't exposed. `docker compose logs kafka | tail -20` and confirm port 9092 mapping in `docker-compose.yml`.
-- **Consumer reads nothing even though producer sent** — `spring.kafka.consumer.auto-offset-reset=earliest` is set in `application.yml`; if you overrode it to `latest`, older messages won't be replayed. Also confirm the consumer's `groupId` is distinct — multiple consumers sharing a group split the partitions.
-- **`ClassCastException` deserializing `TradeEvent`** — `spring.json.trusted.packages` doesn't include `com.dbtraining.reconx.dto`. Fix in `application.yml`.
-- **DLQ topic doesn't exist** — `KafkaTopicsConfig` isn't picking it up in your profile. Either boot with `SPRING_PROFILES_ACTIVE=uat` or pre-create the topic via `kafka-topics --create`.
-- **Idempotent producer errors on retry** — the producer config in `application.yml` sets `enable.idempotence: true`; combined with `acks=all` the broker takes care of dedup.
-
-Kafka is fiddly; being able to see messages in Kafdrop is 90 % of the debugging.
+- **`Broker may not be available`** — Kafka container not up. `docker compose logs kafka | tail -20`
+- **Consumer reads nothing** — check `spring.kafka.consumer.auto-offset-reset=earliest` in `application.yml`
+- **`ClassCastException` on TradeEvent** — `spring.json.trusted.packages` missing. Check `application.yml`
+- **DLQ topic doesn't exist** — `KafkaTopicsConfig` not picked up in your profile. Boot with `SPRING_PROFILES_ACTIVE=uat`
+- **Grafana "No data"** — Prometheus scrape is empty; verify `curl http://localhost:8080/actuator/prometheus | grep kafka_consumer`
+- **`KafkaPipelineIT` timeout** — `@DynamicPropertySource` not overriding `spring.kafka.bootstrap-servers`; confirm the static method signature
