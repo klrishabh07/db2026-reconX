@@ -3,6 +3,7 @@ com\dbtraining\reconx\dto\ReconRunRequest.class
 com\dbtraining\reconx\controller\AuditController.class
 com\dbtraining\reconx\ReconxApplication.class
 com\dbtraining\reconx\repository\entity\Instrument.class
+com\dbtraining\reconx\observability\TradesByStatusGauge.class
 com\dbtraining\reconx\exception\InvalidTradeException.class
 com\dbtraining\reconx\dto\TradeEvent$EventType.class
 com\dbtraining\reconx\kafka\TradeEventProducer.class
@@ -23,6 +24,7 @@ com\dbtraining\reconx\observability\DatabaseHealthIndicator.class
 com\dbtraining\reconx\security\JwtTokenProvider.class
 com\dbtraining\reconx\kafka\ReconciliationConsumer.class
 com\dbtraining\reconx\model\BondTrade$Builder.class
+com\dbtraining\reconx\observability\ReconConfigMBean.class
 com\dbtraining\reconx\controller\TradeController.class
 com\dbtraining\reconx\model\EquityTrade.class
 com\dbtraining\reconx\model\TradeType.class
@@ -35,6 +37,7 @@ com\dbtraining\reconx\controller\ReconController.class
 com\dbtraining\reconx\repository\entity\AuditLogEntry.class
 com\dbtraining\reconx\dto\ReconResult.class
 com\dbtraining\reconx\repository\TradeSpecifications.class
+com\dbtraining\reconx\config\CacheConfig.class
 com\dbtraining\reconx\exception\ReconciliationMismatchException.class
 com\dbtraining\reconx\model\DerivativeTrade$Builder.class
 com\dbtraining\reconx\model\FXTrade$Builder.class
