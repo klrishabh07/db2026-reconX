@@ -1,66 +1,266 @@
-:root{
-  --color-primary:#003366;
-  --color-gold:#C8A951;
-  --color-slate:#2E5FA3;
-  --color-success:#28a745;
-  --color-warning:#ffc107;
-  --color-danger:#dc3545;
-  --color-bg:#ffffff;
-  --color-text:#1a1a1a;
-  --color-surface:#f5f5f5;
-  --color-border:#d4d4d4;
-  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
-  --radius:4px;
+/* ============================================================================
+   TICKET-ADV099 — CSS custom properties (design tokens)
+   TICKET-ADV100 — Dark / light theme via [data-theme="dark"]
+   TICKET-ADV101 — Trade feed slide-in area
+   TICKET-ADV102 — Animations: fade-in, slide-in, pulse + prefers-reduced-motion
+   TICKET-ADV103 — Responsive breakpoints (desktop -> tablet -> mobile)
+   TICKET-ADV106 — Advanced data table: sticky header, sortable, resizable
+   BEM naming: block__element--modifier
+   ============================================================================ */
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+  /* brand */
+  --color-primary: #003366;
+  --color-gold:    #C8A951;
+  --color-slate:   #2E5FA3;
+  /* status */
+  --color-success: #28a745;
+  --color-warning: #ffc107;
+  --color-danger:  #dc3545;
+  /* surfaces (light defaults) */
+  --color-bg:      #ffffff;
+  --color-bg-alt:  #eaeaea;
+  --color-text:    #1a1a1a;
+  --color-surface: #f5f5f5;
+  --color-border:  #d4d4d4;
+  /* spacing scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  /* type */
+  --font-size-sm: 13px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+  /* shape */
+  --radius:    4px;
+  --radius-lg: 8px;
+}
+
+/* ── Dark theme ─────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --color-bg:      #1a1a1a;
+  --color-bg-alt:  #2a2a2a;
+  --color-text:    #f5f5f5;
+  --color-surface: #2a2a2a;
+  --color-border:  #3a3a3a;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 [data-theme="dark"]{ --color-bg:#1a1a1a; --color-text:#f5f5f5; --color-surface:#2a2a2a; --color-border:#3a3a3a; }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--color-bg);color:var(--color-text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 
-/* App shell: outer column, inner row */
-.app-shell{display:flex;flex-direction:column;min-height:100vh}
-.app-header{flex:0 0 64px;display:flex;align-items:center;gap:var(--space-4);padding:0 var(--space-4);background:var(--color-primary);color:#fff}
-.app-title{margin:0;font-size:18px}
-.app-nav{margin-left:auto;display:flex;gap:var(--space-3)}
-.app-nav a{color:#fff;text-decoration:none}
-.app-nav a[aria-current="page"]{border-bottom:2px solid var(--color-gold)}
-.connection{margin-left:12px}
-.connection-status{background:rgba(255,255,255,0.08);padding:4px 8px;border-radius:999px;font-size:12px}
+/* ── Reset ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
-.app-body{display:flex;flex:1 1 auto;min-height:0}
-.app-sidebar{flex:0 0 240px;padding:var(--space-3);border-right:1px solid var(--color-border);background:var(--color-surface)}
-.app-main{flex:1 1 auto;padding:var(--space-4);overflow:auto}
-.app-footer{flex:0 0 48px;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--color-border)}
+/* ── TICKET-ADV098 — Page shell (CSS Grid) ──────────────────────────────────── */
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: var(--font-size-md);
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 64px 1fr 40px;
+  grid-template-areas:
+    "header  header"
+    "sidebar main"
+    "footer  footer";
+  min-height: 100vh;
+}
 
-/* Dashboard grid inside main uses nested flex (row that wraps) */
-.dashboard-grid{display:flex;flex-wrap:wrap;gap:var(--space-3)}
-.dashboard-grid .stat-card{flex:1 1 calc((100% - var(--space-3) * 2) / 3);min-width:180px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-3)}
-.stat-card--warn{border-color:var(--color-warning)}
-.stat-card h3{margin:0;font-size:13px;opacity:0.7}
-.stat-card p{margin:var(--space-2) 0 0;font-size:22px;font-weight:700}
+/* ── TICKET-ADV103 — Responsive breakpoints ─────────────────────────────────── */
+@media (max-width: 1024px) {
+  body { grid-template-columns: 180px 1fr; }
+}
+@media (max-width: 720px) {
+  body {
+    grid-template-columns: 1fr;
+    grid-template-areas: "header" "main" "footer";
+  }
+  .layout__sidebar { display: none; }
+}
 
-/* Trade feed */
-#trade-feed{display:flex;flex-direction:column;gap:var(--space-2);margin-top:var(--space-3);max-height:50vh;overflow-y:auto}
-.trade-card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);padding:var(--space-2) var(--space-3);}
-.trade-card--matched{border-left:4px solid var(--color-success)}
-.trade-card--break{border-left:4px solid var(--color-danger)}
-.trade-card--new{animation:slide-in 0.35s ease-out}
-@keyframes slide-in{from{transform:translateX(-10%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* ── Layout regions ─────────────────────────────────────────────────────────── */
+.layout__header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  background: var(--color-primary);
+  color: #fff;
+}
+.layout__title   { margin: 0; font-size: var(--font-size-lg); }
+.layout__nav     { display: flex; gap: var(--space-3); margin-left: auto; }
+.layout__nav a   { color: #fff; text-decoration: none; font-size: var(--font-size-sm); }
+.layout__nav a[aria-current="page"] { border-bottom: 2px solid var(--color-gold); }
+.layout__sidebar {
+  grid-area: sidebar;
+  padding: var(--space-3);
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.layout__sidebar h2 { margin: 0 0 var(--space-3); font-size: var(--font-size-sm); opacity: 0.7; }
+.layout__sidebar ul { margin: 0; padding: 0; list-style: none; }
+.layout__sidebar li { margin-bottom: var(--space-2); }
+.layout__sidebar a  { color: var(--color-text); text-decoration: none; font-size: var(--font-size-sm); }
+.layout__sidebar a:hover { color: var(--color-gold); }
+.layout__main    { grid-area: main; padding: var(--space-4); overflow: auto; }
+.layout__footer  {
+  grid-area: footer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  opacity: 0.6;
+}
 
-button{padding:var(--space-1) var(--space-2);border:1px solid var(--color-border);background:transparent;color:inherit;border-radius:var(--radius);cursor:pointer}
-:focus-visible{outline:2px solid var(--color-gold);outline-offset:2px}
+/* ── KPI stat cards ─────────────────────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+.stat-card--warn  { border-color: var(--color-warning); }
+.stat-card h3     { margin: 0; font-size: var(--font-size-sm); opacity: 0.7; }
+.stat-card p      { margin: var(--space-2) 0 0; font-size: 22px; font-weight: 700; }
 
-/* Trades table */
-.table-wrap{max-height:40vh;overflow:auto;border:1px solid var(--color-border);border-radius:var(--radius);background:var(--color-bg)}
-.trades-table{width:100%;border-collapse:collapse;min-width:600px}
-.trades-table thead th{position:sticky;top:0;background:var(--color-surface);z-index:2;padding:8px;border-bottom:1px solid var(--color-border);text-align:left}
-.trades-table tbody td{padding:8px;border-bottom:1px solid var(--color-border)}
-.trades-table th .col-resize-handle{display:inline-block;width:10px;height:100%;float:right}
-.col-resizing *{cursor:col-resize!important}
+/* ── TICKET-ADV102 — pulse alert ────────────────────────────────────────────── */
+.alert--danger {
+  margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  animation: pulse 2s ease-in-out infinite;
+}
 
-/* Responsive */
-@media (max-width:1024px){ .app-sidebar{flex:0 0 180px} }
-@media (max-width:720px){ .app-sidebar{display:none} .dashboard-grid .stat-card{flex-basis:100%} }
+/* ── TICKET-ADV101 — live trade feed area ───────────────────────────────────── */
+#trade-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.trade-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  animation: slide-in 0.3s ease-out;
+}
+/* TICKET-ADV105 — new card gets combined entrance; class removed after 500ms */
+.trade-card--new     { animation: slide-in 0.4s ease-out, fade-in 0.4s ease-out; }
+.trade-card--matched { border-left: 4px solid var(--color-success); }
+.trade-card--break   { border-left: 4px solid var(--color-danger); }
+.trade-card--pending { border-left: 4px solid var(--color-warning); }
+.trade-card strong   { margin-right: var(--space-2); }
 
-/* Reduced motion */
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+/* ── TICKET-ADV104 — SSE status badge ──────────────────────────────────────── */
+.sse-badge {
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.15);
+  white-space: nowrap;
+}
+
+/* ── TICKET-ADV106 — Advanced data table ────────────────────────────────────── */
+.table-scroll {
+  /* CRITICAL: no overflow:hidden on any ancestor — sticky header dies silently */
+  overflow: auto;
+  max-height: 60vh;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+.data-table th,
+.data-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.data-table tbody tr:hover { background: var(--color-bg-alt); }
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-alt);
+  cursor: pointer;
+  user-select: none;
+  z-index: 1;
+  font-size: var(--font-size-sm);
+}
+.data-table thead th[aria-sort="ascending"]::after  { content: " \25B2"; } /* ▲ */
+.data-table thead th[aria-sort="descending"]::after { content: " \25BC"; } /* ▼ */
+
+.resize-handle {
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  cursor: col-resize;
+  background: var(--color-border);
+  margin-left: var(--space-2);
+  vertical-align: middle;
+  border-radius: 2px;
+}
+.resize-handle:hover { background: var(--color-gold); }
+
+/* ── Keyframes ──────────────────────────────────────────────────────────────── */
+@keyframes slide-in {
+  from { transform: translateX(-10%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+  50%       { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(220, 53, 69, 0); }
+}
+
+/* ── Utility ────────────────────────────────────────────────────────────────── */
+button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: inherit;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+a { color: var(--color-slate); }
+h2 { margin-top: 0; font-size: var(--font-size-lg); }
+section + section { margin-top: var(--space-5); }

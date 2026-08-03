@@ -6,7 +6,6 @@ import com.dbtraining.reconx.dto.TradeRequest;
 import com.dbtraining.reconx.dto.TradeResponse;
 import com.dbtraining.reconx.repository.entity.Trade;
 import com.dbtraining.reconx.service.TradeService;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -54,77 +53,39 @@ public class TradeController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long counterpartyId,
             @PageableDefault(size = 20, sort = "tradeDate", direction = Sort.Direction.DESC) Pageable pageable) {
-        // TODO(TICKET-ADV063): delegate to service.list(from, to, status, counterpartyId, pageable)
-        //   and wrap the resulting Page<Trade> via PagedResponse.from(page, mapper::toResponse).
-        //   For Day 1 return an empty PagedResponse so the React grid renders
-        //   "no trades match" while the JPA + Specifications work is still pending.
-
         Page<Trade> page = service.list(from, to, status, counterpartyId, pageable);
         return PagedResponse.from(page, mapper::toResponse);
-
-        // return new PagedResponse<>(List.of(), 0, 20, 0, 0);
     }
 
     @PostMapping
     @Operation(summary = "Create a trade")
     public ResponseEntity<TradeResponse> create(@Valid @RequestBody TradeRequest req,
-                                                @AuthenticationPrincipal Object principal) {
-        // TODO(TICKET-ADV064): call service.create(req, actor), build a Location
-        //   header at /api/v1/trades/{id}, and return 201 Created with the
-        //   mapped TradeResponse body.
-
-        String actor = String.valueOf(principal);
+                                                @AuthenticationPrincipal String actor) {
         Trade saved = service.create(req, actor);
-
-        return ResponseEntity
-                .created(URI.create("/api/v1/trades/" + saved.getId()))
-                .body(mapper.toResponse(saved));
-
-        // throw new UnsupportedOperationException("TICKET-ADV064");
+        URI location = URI.create("/api/v1/trades/" + saved.getId());
+        return ResponseEntity.created(location).body(mapper.toResponse(saved));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Full update of a trade")
     public TradeResponse update(@PathVariable Long id, @Valid @RequestBody TradeRequest req,
-                                @AuthenticationPrincipal Object principal) {
-        // TODO(TICKET-ADV065): delegate to service.update(id, req, actor) and
-        //   map the updated entity through mapper.toResponse.
-
-        String actor = String.valueOf(principal);
-        Trade saved = service.update(id, req, actor);
-
-        return mapper.toResponse(saved);
-        // throw new UnsupportedOperationException("TICKET-ADV065");
+                                @AuthenticationPrincipal String actor) {
+        return mapper.toResponse(service.update(id, req, actor));
     }
 
     @PatchMapping("/{id}/status")
     @Operation(summary = "Update only the status field")
     public TradeResponse updateStatus(@PathVariable Long id,
                                       @RequestBody Map<String, String> body,
-                                      @AuthenticationPrincipal Object principal) {
-        // TODO(TICKET-ADV066): read body.get("status") and call
-        //   service.updateStatus(id, status, actor). Return mapper.toResponse(saved).
-
-        String actor = String.valueOf(principal);
-        String status = body.get("status");
-
-        Trade saved = service.updateStatus(id, status, actor);
-
-        return mapper.toResponse(saved);
-        // throw new UnsupportedOperationException("TICKET-ADV066");
+                                      @AuthenticationPrincipal String actor) {
+        return mapper.toResponse(service.updateStatus(id, body.get("status"), actor));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Soft delete (sets deleted_at)")
     public ResponseEntity<Void> delete(@PathVariable Long id,
-                                       @AuthenticationPrincipal Object principal) {
-        // TODO(TICKET-ADV067): service.softDelete(id, actor); return 204 No Content.
-
-        String actor = String.valueOf(principal);
-
+                                       @AuthenticationPrincipal String actor) {
         service.softDelete(id, actor);
-
         return ResponseEntity.noContent().build();
-        // throw new UnsupportedOperationException("TICKET-ADV067");
     }
 }

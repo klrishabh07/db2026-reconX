@@ -1,0 +1,78 @@
+# =============================================================================
+# TICKET-ADV139 — Kafka metrics via Micrometer
+#
+# WHAT:    Wires Micrometer's Kafka client metrics binder so that consumer lag,
+#          throughput, and producer record-send totals appear on the Prometheus
+#          scrape endpoint at /actuator/prometheus.
+# HOW:     Three sections to touch:
+#            1. spring.kafka.consumer.properties — add metric.reporters + trusted packages
+#            2. management.endpoints.web.exposure.include — add prometheus
+#            3. management.metrics.binders.kafka.enabled — set true
+# WHY:     Without this, ADV140/ADV141/ADV142 Grafana panels have nothing to
+#          scrape and Day 10's docker-compose dashboard demo lights up red.
+#          The binder must be enabled on BOTH the Spring Boot actuator side AND
+#          the Kafka client properties side — one without the other = no metrics.
+# OBSERVE: curl -s http://localhost:8080/actuator/prometheus | grep kafka_consumer
+#          should return kafka_consumer_records_lag, kafka_consumer_records_consumed_total,
+#          kafka_consumer_fetch_total once a handful of events have been published.
+#
+# PASTE:   Merge these blocks into backend/src/main/resources/application.yml.
+#          If the file already has a spring.kafka or management block, merge the
+#          keys in — do NOT replace the whole section or you will lose Day 1–8 config.
+# =============================================================================
+
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+    consumer:
+      group-id: reconx-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        # TICKET-ADV137 / ADV139 — allow this DTO package through JSON deser
+        spring.json.trusted.packages: com.dbtraining.reconx.dto
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.dbtraining.reconx.dto.TradeEvent
+        # TICKET-ADV139 — register Micrometer Kafka binder on each consumer client
+        metric.reporters: io.micrometer.core.instrument.binder.kafka.KafkaClientMetrics
+
+    listener:
+      # Prevent startup failure when Kafka isn't reachable in dev/test
+      missing-topics-fatal: false
+
+# =============================================================================
+# TICKET-ADV139 — Actuator + Prometheus exposure
+# =============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        # prometheus added here so Grafana can scrape /actuator/prometheus
+        include: health,info,metrics,prometheus,env,loggers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+  metrics:
+    # TICKET-ADV139 — enable the Micrometer Kafka binder
+    binders:
+      kafka:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        reconciliation.duration: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}

@@ -1,0 +1,151 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "title": "Kafka Health",
+      "type": "row"
+    },
+    {
+      "type": "timeseries",
+      "title": "Consumer lag by topic (ADV140)",
+      "description": "Sum of consumer record lag across all partitions, grouped by topic. Yellow > 100, Red > 1000. A rising line means a consumer is falling behind its partition.",
+      "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (topic) (kafka_consumer_records_lag)",
+          "legendFormat": "{{topic}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red",    "value": 1000 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Throughput: produced vs consumed (ADV141)",
+      "description": "Overlay of produce rate and consume rate (msg/s). In steady state the two lines should track closely. A widening gap means a consumer is falling behind.",
+      "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(kafka_consumer_records_consumed_total[1m]))",
+          "legendFormat": "consumed"
+        },
+        {
+          "expr": "sum(rate(kafka_producer_record_send_total[1m]))",
+          "legendFormat": "produced"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 }
+    },
+    {
+      "type": "stat",
+      "title": "DLQ message count (ADV142)",
+      "description": "Total messages consumed from trade-events-dlq. Any value above 0 means a trade event failed all retries and was quarantined. Check /api/v1/admin/dlq to inspect and replay.",
+      "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(kafka_consumer_records_consumed_total{topic=\"trade-events-dlq\"})",
+          "legendFormat": "DLQ messages"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red",   "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 9 }
+    },
+    {
+      "type": "timeseries",
+      "title": "DLQ depth over time (ADV142)",
+      "description": "Rate of messages arriving on the DLQ topic. A non-zero line means the error handler's retries are being exhausted. Combine with the Consumer Lag panel to see which topic is the source.",
+      "datasource": { "type": "prometheus", "uid": "reconx-prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(kafka_consumer_records_consumed_total{topic=\"trade-events-dlq\"}[1m]))",
+          "legendFormat": "dlq rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red",   "value": 0.01 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 18, "x": 6, "y": 9 }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["reconx", "kafka"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "title": "ReconX Kafka",
+  "uid": "reconx-kafka",
+  "version": 1,
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    }
+  ]
+}
