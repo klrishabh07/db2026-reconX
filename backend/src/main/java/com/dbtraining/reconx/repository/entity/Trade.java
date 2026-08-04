@@ -18,7 +18,7 @@ import java.time.LocalDate;
  *
  * WHAT:    Persistent representation of a trade. Maps to the trades table
  *          declared in 002-schema.xml.
- * HOW:     ManyToOne LAZY to Counterparty and Instrument keeps the row
+ * HOW:     ManyToOne EAGER to Counterparty and Instrument keeps the row
  *          fetch tight; the service layer asks for the relation only when
  *          it needs it.
  * WHY:     This is the durable record. The domain {@code TradeType} sealed
@@ -43,11 +43,11 @@ public class Trade {
     @Column(name = "trade_ref", nullable = false, unique = true, length = 30)
     private String tradeRef;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "instrument_id")
     private Instrument instrument;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "counterparty_id")
     private Counterparty counterparty;
 

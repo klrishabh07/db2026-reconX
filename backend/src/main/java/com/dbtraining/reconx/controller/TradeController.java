@@ -19,8 +19,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.http.MediaType;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.io.IOException;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -40,10 +48,50 @@ public class TradeController {
 
     private final TradeService service;
     private final TradeMapper mapper;
+    private final List<SseEmitter> emitters;
 
     public TradeController(TradeService service, TradeMapper mapper) {
         this.service = service;
         this.mapper = mapper;
+        this.emitters = new CopyOnWriteArrayList<>();
+    }
+
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream() {
+        SseEmitter emitter = new SseEmitter(0L);
+        emitters.add(emitter);
+
+        emitter.onCompletion(() -> emitters.remove(emitter));
+        emitter.onTimeout(() -> emitters.remove(emitter));
+        emitter.onError(ex -> emitters.remove(emitter));
+
+        try {
+            emitter.send(SseEmitter.event()
+                .name("connected")
+                .data("Trade stream connected"));
+        } catch(IOException e) {
+            emitters.remove(emitter);
+        }
+
+        return emitter;
+    }
+
+    private void broadcastTrade(TradeResponse trade) {
+        List<SseEmitter> deadEmitters = new ArrayList<>();
+        
+        for(SseEmitter emitter : emitters) {
+            try {
+                emitter.send(
+                    SseEmitter.event()
+                    .name("trade")
+                    .data(trade)
+                );
+            } catch(Exception ex) {
+                deadEmitters.add(emitter);
+            }
+        }
+
+        emitters.removeAll(deadEmitters);
     }
 
     @GetMapping
@@ -76,9 +124,13 @@ public class TradeController {
         String actor = String.valueOf(principal);
         Trade saved = service.create(req, actor);
 
+        TradeResponse response = mapper.toResponse(saved);
+
+        broadcastTrade(response);
+
         return ResponseEntity
                 .created(URI.create("/api/v1/trades/" + saved.getId()))
-                .body(mapper.toResponse(saved));
+                .body(response);
 
         // throw new UnsupportedOperationException("TICKET-ADV064");
     }

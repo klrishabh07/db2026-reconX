@@ -1,7 +1,7 @@
 // useMemo for portfolio-value calc + useTradeStream live feed.
 import React, { useMemo } from 'react';
 import { withAuth } from '@components/withAuth.jsx';
-import { useTradeStream } from '@hooks/useTradeStream.js';
+import { useTradeStream } from '@context/TradeStreamProvider.jsx';
 
 function StatCard({ label, value }) {
   return (

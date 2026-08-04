@@ -37,7 +37,8 @@ public class SecurityConfig {
                         "/actuator/prometheus",
                         "/swagger-ui.html", "/swagger-ui/**",
                         "/v3/api-docs/**",
-                        "/h2/**").permitAll()
+                        "/h2/**",
+                        "/v1/trades/stream").permitAll()
                 .requestMatchers(HttpMethod.GET,    "/v1/trades/**").hasAnyRole("VIEWER", "TRADER", "RECON_ANALYST", "ADMIN")
                 .requestMatchers(HttpMethod.POST,   "/v1/trades").hasAnyRole("TRADER", "ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/v1/trades/**").hasAnyRole("TRADER", "ADMIN")
